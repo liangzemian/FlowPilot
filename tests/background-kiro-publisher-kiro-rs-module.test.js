@@ -17,7 +17,7 @@ test('kiro publisher exposes a factory and upload payload helpers', () => {
   assert.equal(typeof api?.buildMachineId, 'function');
 });
 
-test('kiro publisher builds kiro.rs payload from desktop auth runtime without profileArn', async () => {
+test('kiro publisher builds kiro.rs payload from desktop auth runtime with BuilderId profileArn', async () => {
   const api = loadPublisherApi();
   const payload = api.buildKiroRsPayload({
     kiroTargetId: 'kiro-rs',
@@ -51,6 +51,7 @@ test('kiro publisher builds kiro.rs payload from desktop auth runtime without pr
     region: 'us-east-1',
     email: 'aws-user@example.com',
     refreshToken: 'refresh-token-001',
+    profileArn: 'arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX',
     clientId: 'client-001',
     clientSecret: 'secret-001',
     authMethod: 'idc',
@@ -62,7 +63,6 @@ test('kiro publisher builds kiro.rs payload from desktop auth runtime without pr
   });
   assert.equal(machineId.length, 64);
   assert.match(machineId, /^[0-9a-f]{64}$/);
-  assert.equal(Object.prototype.hasOwnProperty.call(payload, 'profileArn'), false);
 });
 
 test('kiro publisher reads latest kiro.rs key from background state instead of stale node snapshot', async () => {
@@ -113,6 +113,7 @@ test('kiro publisher reads latest kiro.rs key from background state instead of s
         method: options.method || 'GET',
         apiKey: options.headers?.['x-api-key'],
         authorization: options.headers?.Authorization,
+        body: options.body ? JSON.parse(options.body) : null,
       });
       if ((options.method || 'GET') === 'GET') {
         return {
@@ -162,6 +163,10 @@ test('kiro publisher reads latest kiro.rs key from background state instead of s
   assert.equal(requests[0].authorization, 'Bearer live-key');
   assert.equal(requests[1].apiKey, 'live-key');
   assert.equal(requests[1].authorization, 'Bearer live-key');
+  assert.equal(
+    requests[1].body.profileArn,
+    'arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX'
+  );
   assert.equal(completed.length, 1);
   assert.equal(completed[0].nodeId, 'kiro-upload-credential');
 });

@@ -12,7 +12,7 @@
 4. 等待回到 Kiro Web 登录完成页，建立 Kiro Web 登录态
 5. 基于已有 Kiro Web / Builder ID 浏览器会话打开桌面端授权页
 6. 监听 localhost callback，用授权码与 PKCE 换取桌面端 Builder ID 凭据
-7. 将 `refreshToken / clientId / clientSecret / machineId / email` 等字段上传到 `kiro.rs`
+7. 将 `refreshToken / profileArn / clientId / clientSecret / machineId / email` 等字段上传到 `kiro.rs`
 
 这条链路的核心判断是：能被 `kiro.rs` 稳定使用的不是注册页里某个临时结果，而是 Kiro 桌面端授权链路产生的 Builder ID 凭据。
 
@@ -23,7 +23,7 @@
 - **两套 flow 分开**：Kiro flow 独立使用 `background/kiro/*`、`content/kiro/*`、`kiroRuntime` 和自己的 9 个节点，不复用 OpenAI 的页面、接码、Plus、平台绑定逻辑。
 - **只抽公共能力**：Kiro 只复用邮箱服务、账户密码生成、IP 代理和 `kiro.rs` 目标配置；这些能力本身是跨 flow 基础设施，不带 OpenAI 业务语义。
 - **来源与目标清晰**：Kiro 的目标固定为 `kiro-rs`；运行页面来源按 runtime source 识别，注册子链路覆盖 Kiro Web 与 Builder ID 注册页，桌面授权子链路只覆盖 Builder ID authorize 页。
-- **上传到 `kiro.rs`**：上传器只按 `kiro.rs` 新增凭据接口构建 payload，不上传 `profileArn`，不引入本地账号管理项目里的私有字段。
+- **上传到 `kiro.rs`**：上传器只按 `kiro.rs` 新增凭据接口构建 payload，并固定上传 BuilderId 的 Kiro runtime `profileArn`；不引入本地账号管理项目里的私有字段。
 - **不考虑旧兼容**：设计中不保留旧字段别名、不保留旧入口回退、不保留“失败后换旧链路”的分支。
 
 ### 2.2 完整性分析
@@ -33,7 +33,7 @@
 - UI 配置：Kiro flow、`kiro.rs URL`、`API Key`、共享邮箱、共享密码、共享代理。
 - 注册页面：官方 Kiro 登录页、Builder ID 注册页、授权确认页、Kiro Web 登录完成页。
 - 桌面授权：OIDC client 注册、PKCE、authorize URL、localhost callback、token exchange。
-- 上传：`kiro.rs` baseUrl 归一化、API Key 鉴权、payload 构建、machineId 计算、上传状态回写。
+- 上传：`kiro.rs` baseUrl 归一化、API Key 鉴权、payload 构建、BuilderId profileArn 固定映射、machineId 计算、上传状态回写。
 - 自动运行：Kiro 9 节点 linear workflow，执行范围、状态、日志、失败停止与轮次汇总走通用 runner，但节点实现完全属于 Kiro。
 - 测试：覆盖状态模型、source 归属、注册页状态机、桌面授权 gate、上传器 payload、sidepanel flow 选择。
 
@@ -128,6 +128,7 @@ kiroRuntime: {
 ```js
 {
   refreshToken,
+  profileArn,
   clientId,
   clientSecret,
   region,
@@ -146,8 +147,8 @@ kiroRuntime: {
 
 - `machineId = sha256("KotlinNativeAPI/" + refreshToken)`
 - `region / authRegion / apiRegion` 使用 Kiro 默认固定值
+- `profileArn` 使用 BuilderId 固定值 `arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX`
 - `proxy*` 仅在当前共享代理存在且可解析时上传
-- 不上传 `profileArn`
 
 ## 4. 设计自检
 

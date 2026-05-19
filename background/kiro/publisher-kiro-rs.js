@@ -4,6 +4,7 @@
   const kiroStateApi = root?.MultiPageBackgroundKiroState || null;
   const DEFAULT_REGION = kiroStateApi?.DEFAULT_REGION || 'us-east-1';
   const DEFAULT_TARGET_ID = kiroStateApi?.DEFAULT_TARGET_ID || 'kiro-rs';
+  const BUILDER_ID_PROFILE_ARN = 'arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX';
 
   function isPlainObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -207,6 +208,7 @@
       region,
       email,
       refreshToken,
+      profileArn: BUILDER_ID_PROFILE_ARN,
       clientId,
       clientSecret,
       authMethod: 'idc',
@@ -364,6 +366,7 @@
 
         const uploadResult = await uploadBuilderIdCredential(baseUrl, apiKey, {
           refreshToken: uploadInput.refreshToken,
+          profileArn: uploadInput.profileArn,
           authMethod: uploadInput.authMethod,
           clientId: uploadInput.clientId,
           clientSecret: uploadInput.clientSecret,
