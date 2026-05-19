@@ -14245,7 +14245,7 @@ btnGpcHelperConvertApiKey?.addEventListener('click', () => {
 });
 
 btnOpenKiroRsGithub?.addEventListener('click', () => {
-  openExternalUrl('https://github.com/hank9999/kiro.rs');
+  openExternalUrl('https://github.com/QLHazyCoder/kiro.rs');
 });
 
 btnGpcHelperBalance?.addEventListener('click', async () => {

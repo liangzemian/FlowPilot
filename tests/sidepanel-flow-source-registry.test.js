@@ -51,6 +51,11 @@ test('sidepanel html exposes flow selector and kiro source fields', () => {
   });
 });
 
+test('sidepanel Kiro GitHub button opens the configured fork', () => {
+  assert.match(sidepanelSource, /openExternalUrl\('https:\/\/github\.com\/QLHazyCoder\/kiro\.rs'\)/);
+  assert.doesNotMatch(sidepanelSource, /github\.com\/hank9999\/kiro\.rs/);
+});
+
 test('sidepanel step definitions rerender when active flow changes even if plus/signup settings stay the same', () => {
   const bundle = [
     extractFunction(sidepanelSource, 'normalizeSignupMethod'),
