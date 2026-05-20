@@ -3574,6 +3574,97 @@ function projectSettingsSchemaView(settingsSchemaApi, normalizedInput = {}, payl
   return settingsSchemaApi.buildSettingsView(normalizedSettingsState, payload);
 }
 
+function setSettingsStatePatchValue(patch, path, value) {
+  let cursor = patch;
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const key = path[index];
+    if (!isPlainObjectValue(cursor[key])) {
+      cursor[key] = {};
+    }
+    cursor = cursor[key];
+  }
+  cursor[path[path.length - 1]] = value;
+}
+
+function mergeSettingsStatePatch(baseValue = {}, patchValue = {}) {
+  if (!isPlainObjectValue(patchValue)) {
+    return isPlainObjectValue(baseValue) ? { ...baseValue } : {};
+  }
+  const next = {
+    ...(isPlainObjectValue(baseValue) ? baseValue : {}),
+  };
+  Object.entries(patchValue).forEach(([key, value]) => {
+    next[key] = isPlainObjectValue(value)
+      ? mergeSettingsStatePatch(next[key], value)
+      : value;
+  });
+  return next;
+}
+
+function buildSettingsStatePatchFromFlatUpdates(updates = {}) {
+  const patch = {};
+  const hasUpdate = (key) => Object.prototype.hasOwnProperty.call(updates, key);
+  const assignIfUpdated = (key, path) => {
+    if (hasUpdate(key)) {
+      setSettingsStatePatchValue(patch, path, updates[key]);
+    }
+  };
+
+  assignIfUpdated('activeFlowId', ['activeFlowId']);
+  if (hasUpdate('openaiIntegrationTargetId') || hasUpdate('panelMode')) {
+    setSettingsStatePatchValue(
+      patch,
+      ['flows', 'openai', 'integrationTargetId'],
+      hasUpdate('openaiIntegrationTargetId') ? updates.openaiIntegrationTargetId : updates.panelMode
+    );
+  }
+  assignIfUpdated('kiroTargetId', ['flows', 'kiro', 'targetId']);
+  assignIfUpdated('vpsUrl', ['flows', 'openai', 'integrationTargets', 'cpa', 'vpsUrl']);
+  assignIfUpdated('vpsPassword', ['flows', 'openai', 'integrationTargets', 'cpa', 'vpsPassword']);
+  assignIfUpdated('localCpaStep9Mode', ['flows', 'openai', 'integrationTargets', 'cpa', 'localCpaStep9Mode']);
+  assignIfUpdated('sub2apiUrl', ['flows', 'openai', 'integrationTargets', 'sub2api', 'sub2apiUrl']);
+  assignIfUpdated('sub2apiEmail', ['flows', 'openai', 'integrationTargets', 'sub2api', 'sub2apiEmail']);
+  assignIfUpdated('sub2apiPassword', ['flows', 'openai', 'integrationTargets', 'sub2api', 'sub2apiPassword']);
+  assignIfUpdated('sub2apiGroupName', ['flows', 'openai', 'integrationTargets', 'sub2api', 'sub2apiGroupName']);
+  assignIfUpdated('sub2apiGroupNames', ['flows', 'openai', 'integrationTargets', 'sub2api', 'sub2apiGroupNames']);
+  assignIfUpdated('sub2apiAccountPriority', ['flows', 'openai', 'integrationTargets', 'sub2api', 'sub2apiAccountPriority']);
+  assignIfUpdated('sub2apiDefaultProxyName', ['flows', 'openai', 'integrationTargets', 'sub2api', 'sub2apiDefaultProxyName']);
+  assignIfUpdated('codex2apiUrl', ['flows', 'openai', 'integrationTargets', 'codex2api', 'codex2apiUrl']);
+  assignIfUpdated('codex2apiAdminKey', ['flows', 'openai', 'integrationTargets', 'codex2api', 'codex2apiAdminKey']);
+  assignIfUpdated('customPassword', ['services', 'account', 'customPassword']);
+  assignIfUpdated('signupMethod', ['flows', 'openai', 'signup', 'signupMethod']);
+  assignIfUpdated('phoneVerificationEnabled', ['flows', 'openai', 'signup', 'phoneVerificationEnabled']);
+  assignIfUpdated('phoneSignupReloginAfterBindEmailEnabled', ['flows', 'openai', 'signup', 'phoneSignupReloginAfterBindEmailEnabled']);
+  assignIfUpdated('plusModeEnabled', ['flows', 'openai', 'plus', 'plusModeEnabled']);
+  assignIfUpdated('plusPaymentMethod', ['flows', 'openai', 'plus', 'plusPaymentMethod']);
+  assignIfUpdated('plusAccountAccessStrategy', ['flows', 'openai', 'plus', 'plusAccountAccessStrategy']);
+  assignIfUpdated('mailProvider', ['services', 'email', 'provider']);
+  assignIfUpdated('ipProxyEnabled', ['services', 'proxy', 'enabled']);
+  assignIfUpdated('ipProxyService', ['services', 'proxy', 'provider']);
+  assignIfUpdated('ipProxyMode', ['services', 'proxy', 'mode']);
+  assignIfUpdated('kiroRsUrl', ['flows', 'kiro', 'targets', 'kiro-rs', 'baseUrl']);
+  assignIfUpdated('kiroRsKey', ['flows', 'kiro', 'targets', 'kiro-rs', 'apiKey']);
+
+  if (hasUpdate('stepExecutionRangeByFlow') && isPlainObjectValue(updates.stepExecutionRangeByFlow)) {
+    if (isPlainObjectValue(updates.stepExecutionRangeByFlow.openai)) {
+      setSettingsStatePatchValue(
+        patch,
+        ['flows', 'openai', 'autoRun', 'stepExecutionRange'],
+        updates.stepExecutionRangeByFlow.openai
+      );
+    }
+    if (isPlainObjectValue(updates.stepExecutionRangeByFlow.kiro)) {
+      setSettingsStatePatchValue(
+        patch,
+        ['flows', 'kiro', 'autoRun', 'stepExecutionRange'],
+        updates.stepExecutionRangeByFlow.kiro
+      );
+    }
+  }
+
+  return patch;
+}
+
 function buildPersistedSettingsStoragePayload(payload = {}) {
   const storagePayload = {};
   Object.entries(payload || {}).forEach(([key, value]) => {
@@ -3924,6 +4015,10 @@ async function setPersistentSettings(updates) {
         ? settingsSchemaApi.mergeSettingsState(currentSettingsState, nextUpdates.settingsState)
         : nextUpdates.settingsState)
       : currentSettingsState;
+    mergedSettingsState = mergeSettingsStatePatch(
+      mergedSettingsState,
+      buildSettingsStatePatchFromFlatUpdates(explicitFlatUpdates)
+    );
   }
 
   const nextPayloadInput = {
