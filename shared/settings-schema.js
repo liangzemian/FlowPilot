@@ -341,8 +341,8 @@
             },
             autoRun: {
               stepExecutionRange: normalizeStepExecutionRangeEntry(
-                nested?.flows?.openai?.autoRun?.stepExecutionRange
-                  ?? stepExecutionRangeByFlow.openai
+                stepExecutionRangeByFlow.openai
+                  ?? nested?.flows?.openai?.autoRun?.stepExecutionRange
                   ?? {},
                 defaults.flows.openai.autoRun.stepExecutionRange
               ),
@@ -370,8 +370,8 @@
             },
             autoRun: {
               stepExecutionRange: normalizeStepExecutionRangeEntry(
-                nested?.flows?.kiro?.autoRun?.stepExecutionRange
-                  ?? stepExecutionRangeByFlow.kiro
+                stepExecutionRangeByFlow.kiro
+                  ?? nested?.flows?.kiro?.autoRun?.stepExecutionRange
                   ?? {},
                 defaults.flows.kiro.autoRun.stepExecutionRange
               ),

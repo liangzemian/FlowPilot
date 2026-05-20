@@ -2622,6 +2622,19 @@ function getStepExecutionRangeBoundaryNodeId(stepNumber, boundary = 'start') {
   return String(resolvedNodeId || fallbackNode?.nodeId || '').trim();
 }
 
+function getStepExecutionRangeStepOptionLabel(node = {}) {
+  const nodeId = String(node?.nodeId || '').trim();
+  const step = getStepIdByNodeIdForCurrentMode(nodeId);
+  const displayOrder = Number(node?.displayOrder);
+  if (Number.isInteger(step) && step > 0) {
+    return String(step);
+  }
+  if (Number.isInteger(displayOrder) && displayOrder > 0) {
+    return String(displayOrder);
+  }
+  return nodeId;
+}
+
 function syncStepExecutionRangeSelectOptions(selectedFromNodeId = '', selectedToNodeId = '') {
   const nodes = getStepExecutionRangeNodes();
   const fromSelect = inputStepExecutionRangeFrom;
@@ -2632,7 +2645,7 @@ function syncStepExecutionRangeSelectOptions(selectedFromNodeId = '', selectedTo
 
   const buildOptions = (selectedValue) => nodes.map((node) => {
     const nodeId = String(node?.nodeId || '').trim();
-    const label = getStepExecutionRangeNodeLabel(node);
+    const label = getStepExecutionRangeStepOptionLabel(node);
     return `<option value="${escapeHtml(nodeId)}"${nodeId === selectedValue ? ' selected' : ''}>${escapeHtml(label)}</option>`;
   }).join('');
 
