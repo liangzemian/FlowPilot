@@ -148,7 +148,7 @@ test('sidepanel html exposes phone verification toggle and multi-provider SMS ro
   assert.doesNotMatch(html, /id="input-account-run-history-text-enabled"/);
 });
 
-test('sidepanel loads SMS country lists silently during startup fallback', () => {
+test('sidepanel loads live SMS country lists silently during startup', () => {
   const heroLoader = extractFunction('loadHeroSmsCountries');
   const fiveSimLoader = extractFunction('loadFiveSimCountries');
 
@@ -158,9 +158,11 @@ test('sidepanel loads SMS country lists silently during startup fallback', () =>
   assert.match(fiveSimLoader, /const preferFallbackOnly = Boolean\(options\?\.preferFallbackOnly\)/);
   assert.doesNotMatch(heroLoader, /console\.(?:warn|error)\('加载 (?:5sim|HeroSMS) 国家列表失败：'/);
   assert.doesNotMatch(fiveSimLoader, /console\.(?:warn|error)\('加载 5sim 国家列表失败：'/);
-  assert.match(sidepanelSource, /loadHeroSmsCountries\(\{ silent: true, preferFallbackOnly: true \}\)/);
-  assert.match(sidepanelSource, /loadFiveSimCountries\(\{ silent: true, preferFallbackOnly: true \}\)/);
+  assert.match(sidepanelSource, /loadHeroSmsCountries\(\{ silent: true \}\)/);
+  assert.match(sidepanelSource, /loadFiveSimCountries\(\{ silent: true \}\)/);
   assert.match(sidepanelSource, /await loadHeroSmsCountries\(\{ silent: true \}\);/);
+  assert.doesNotMatch(sidepanelSource, /loadHeroSmsCountries\(\{ silent: true, preferFallbackOnly: true \}\)/);
+  assert.doesNotMatch(sidepanelSource, /loadFiveSimCountries\(\{ silent: true, preferFallbackOnly: true \}\)/);
   assert.doesNotMatch(sidepanelSource, /console\.error\('加载 (?:HeroSMS|5sim|NexSMS) 国家列表失败：'/);
 });
 

@@ -11305,7 +11305,7 @@ function applySettingsState(state) {
   updatePhoneSmsProviderOrderSummary(restoredPhoneSmsProviderOrder);
   if (previousPhoneSmsProvider !== restoredPhoneSmsProvider) {
     heroSmsCountrySelectionOrder = [];
-    loadHeroSmsCountries({ silent: true, preferFallbackOnly: true }).catch(() => { });
+    loadHeroSmsCountries({ silent: true }).catch(() => { });
   }
   if (inputHeroSmsApiKey) {
     inputHeroSmsApiKey.value = restoredPhoneSmsProvider === PHONE_SMS_PROVIDER_FIVE_SIM
@@ -18145,21 +18145,21 @@ initializeReleaseInfo().catch((err) => {
   console.error('Failed to initialize release info:', err);
 });
 Promise.allSettled([
-  loadHeroSmsCountries({ silent: true, preferFallbackOnly: true }),
-  loadFiveSimCountries({ silent: true, preferFallbackOnly: true }),
+  loadHeroSmsCountries({ silent: true }),
+  loadFiveSimCountries({ silent: true }),
   loadNexSmsCountries(),
 ]).then((results) => {
   const heroResult = results[0];
   const fiveSimResult = results[1];
   const nexSmsResult = results[2];
   if (heroResult?.status === 'rejected') {
-    console.debug('HeroSMS country list startup fallback skipped:', heroResult.reason);
+    console.debug('HeroSMS country list startup load skipped:', heroResult.reason);
   }
   if (fiveSimResult?.status === 'rejected') {
-    console.debug('5sim country list startup fallback skipped:', fiveSimResult.reason);
+    console.debug('5sim country list startup load skipped:', fiveSimResult.reason);
   }
   if (nexSmsResult?.status === 'rejected') {
-    console.debug('NexSMS country list startup fallback skipped:', nexSmsResult.reason);
+    console.debug('NexSMS country list startup load skipped:', nexSmsResult.reason);
   }
   return restoreState().then(() => {
     syncPasswordToggleLabel();
