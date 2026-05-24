@@ -11028,38 +11028,98 @@ async function executeNodeViaCompletionSignal(nodeId, timeoutMs = 0) {
     error => ({ ok: false, error }),
   );
 
-  let executeError = null;
-  try {
-    await executeNode(normalizedNodeId, { deferRetryableTransportError: true });
-  } catch (err) {
-    executeError = err;
-    if (isStopError(err) || !isRetryableContentScriptTransportError(err)) {
-      notifyNodeError(normalizedNodeId, getErrorMessage(err));
+  const executeResultPromise = executeNode(normalizedNodeId, { deferRetryableTransportError: true }).then(
+    () => ({ ok: true }),
+    error => ({ ok: false, error }),
+  );
+
+  let executeResult = null;
+  let completionResult = null;
+  const firstResult = await Promise.race([
+    executeResultPromise.then(result => ({ type: 'execute', result })),
+    completionResultPromise.then(result => ({ type: 'completion', result })),
+  ]);
+
+  if (firstResult.type === 'completion') {
+    completionResult = firstResult.result;
+    if (completionResult.ok) {
+      executeResultPromise.then((result) => {
+        if (!result.ok) {
+          const error = result.error;
+          if (isStopError(error) || !isRetryableContentScriptTransportError(error)) {
+            console.warn(
+              LOG_PREFIX,
+              `[executeNodeViaCompletionSignal] node ${normalizedNodeId} completed before execute returned, later execute error: ${getErrorMessage(error)}`
+            );
+          }
+        }
+      }).catch(() => {});
+      return completionResult.payload;
     }
+    executeResultPromise.then((result) => {
+      if (!result.ok) {
+        const error = result.error;
+        if (isStopError(error) || !isRetryableContentScriptTransportError(error)) {
+          console.warn(
+            LOG_PREFIX,
+            `[executeNodeViaCompletionSignal] node ${normalizedNodeId} completion waiter failed before execute returned, later execute error: ${getErrorMessage(error)}`
+          );
+        }
+      }
+    }).catch(() => {});
+    if (/等待超时/.test(getErrorMessage(completionResult.error)) && normalizedNodeId === 'fill-profile') {
+      const recoveredPayload = await completeStep5FromTabUrlAfterTransportError(completionResult.error).catch(() => null);
+      if (recoveredPayload) {
+        notifyNodeComplete(normalizedNodeId, recoveredPayload);
+        return recoveredPayload;
+      }
+    }
+    throw completionResult.error;
+  } else {
+    executeResult = firstResult.result;
+    if (!executeResult.ok) {
+      const err = executeResult.error;
+      if (isStopError(err) || !isRetryableContentScriptTransportError(err)) {
+        notifyNodeError(normalizedNodeId, getErrorMessage(err));
+      } else if (normalizedNodeId === 'fill-profile') {
+        const recoveredPayload = await completeStep5FromTabUrlAfterTransportError(err).catch(() => null);
+        if (recoveredPayload) {
+          notifyNodeComplete(normalizedNodeId, recoveredPayload);
+          return recoveredPayload;
+        }
+      }
+    }
+    completionResult = await completionResultPromise;
   }
 
-  const completionResult = await completionResultPromise;
   if (completionResult.ok) {
-    if (executeError) {
+    if (executeResult && !executeResult.ok) {
       console.warn(
         LOG_PREFIX,
-        `[executeNodeViaCompletionSignal] node ${normalizedNodeId} completed after deferred execute error: ${getErrorMessage(executeError)}`
+        `[executeNodeViaCompletionSignal] node ${normalizedNodeId} completed after deferred execute error: ${getErrorMessage(executeResult.error)}`
       );
     }
     return completionResult.payload;
   }
 
-  if (executeError && isRetryableContentScriptTransportError(executeError)) {
+  if (executeResult && !executeResult.ok && isRetryableContentScriptTransportError(executeResult.error)) {
     const completionMessage = getErrorMessage(completionResult.error);
     if (/等待超时/.test(completionMessage)) {
-      await finalizeDeferredNodeExecutionError(normalizedNodeId, executeError);
-      throw executeError;
+      if (normalizedNodeId === 'fill-profile') {
+        const recoveredPayload = await completeStep5FromTabUrlAfterTransportError(executeResult.error).catch(() => null);
+        if (recoveredPayload) {
+          notifyNodeComplete(normalizedNodeId, recoveredPayload);
+          return recoveredPayload;
+        }
+      }
+      await finalizeDeferredNodeExecutionError(normalizedNodeId, executeResult.error);
+      throw executeResult.error;
     }
     throw completionResult.error;
   }
 
-  if (executeError) {
-    throw executeError;
+  if (executeResult && !executeResult.ok) {
+    throw executeResult.error;
   }
 
   throw completionResult.error;
@@ -11072,6 +11132,38 @@ async function executeStepViaCompletionSignal(step, timeoutMs = 0) {
     throw new Error(`执行步骤 ${step} 失败：当前 flow 中未找到对应节点。`);
   }
   return executeNodeViaCompletionSignal(nodeId, timeoutMs);
+}
+
+async function completeStep5FromTabUrlAfterTransportError(sourceError = null) {
+  const signupTabId = await getTabId('openai-auth').catch(() => null);
+  if (!Number.isInteger(signupTabId)) {
+    return null;
+  }
+
+  const tab = await waitForTabStableComplete(signupTabId, {
+    timeoutMs: 30000,
+    retryDelayMs: 300,
+    stableMs: 1000,
+    initialDelayMs: 300,
+  }).catch(() => null);
+  const currentUrl = String(tab?.url || '').trim();
+  if (!currentUrl || !isStep5CompletionChatgptUrl(currentUrl)) {
+    return null;
+  }
+
+  const payload = {
+    profileSubmitted: true,
+    postSubmitChecked: true,
+    outcome: 'logged_in_home',
+    url: currentUrl,
+    recoveredFromTransportError: true,
+  };
+  await addLog(
+    `步骤 5 [调试] 内容脚本通信中断，但后台确认标签页已进入 chatgpt.com，按提交成功收尾。原始错误：${getErrorMessage(sourceError)}`,
+    'warn',
+    { step: 5, stepKey: 'fill-profile' }
+  );
+  return payload;
 }
 
 function getLatestLogTimestamp(logs = [], fallback = 0) {
