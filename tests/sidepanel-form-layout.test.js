@@ -109,9 +109,15 @@ test('sidepanel form controls share one width system', () => {
   const dataLabelBlock = readCssRuleBlock(css, '.data-label');
 
   assert.match(css, /--data-label-width:\s*76px;/);
+  assert.match(css, /--data-field-height:\s*34px;/);
   assert.match(css, /\.data-label\s*\{[\s\S]*flex:\s*0 0 var\(--data-label-width\);/);
   assert.match(css, /\.data-inline\s*\{[\s\S]*flex:\s*1 1 0;/);
   assert.match(css, /\.data-inline > \.data-input,[\s\S]*\.data-inline > \.input-with-icon\s*\{[\s\S]*flex:\s*1 1 0;/);
+  assert.match(css, /\.btn\s*\{[\s\S]*min-height:\s*var\(--data-field-height\);[\s\S]*border:\s*1px solid var\(--border\);/);
+  assert.match(css, /\.data-input\s*\{[\s\S]*min-height:\s*var\(--data-field-height\);/);
+  assert.match(css, /\.data-select\s*\{[\s\S]*min-height:\s*var\(--data-field-height\);/);
   assert.match(css, /\.data-inline-btn\s*\{[\s\S]*min-width:\s*var\(--data-inline-action-min-width\);/);
+  assert.match(css, /\.data-inline-btn\s*\{[\s\S]*min-height:\s*var\(--data-field-height\);/);
   assert.doesNotMatch(dataLabelBlock, /width:\s*56px;/);
+  assert.doesNotMatch(css, /icon-action-btn/);
 });

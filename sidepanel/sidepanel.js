@@ -89,7 +89,7 @@ const btnImportSettings = document.getElementById('btn-import-settings');
 const inputImportSettingsFile = document.getElementById('input-import-settings-file');
 const labelSourceSelector = document.getElementById('label-source-selector');
 const selectPanelMode = document.getElementById('select-panel-mode');
-const btnOpenWebchat2ApiGithub = document.getElementById('btn-open-webchat2api-github');
+const btnOpenTargetRepository = document.getElementById('btn-open-target-repository');
 const rowVpsUrl = document.getElementById('row-vps-url');
 const inputVpsUrl = document.getElementById('input-vps-url');
 const rowVpsPassword = document.getElementById('row-vps-password');
@@ -179,7 +179,6 @@ const rowCodex2ApiAdminKey = document.getElementById('row-codex2api-admin-key');
 const inputCodex2ApiAdminKey = document.getElementById('input-codex2api-admin-key');
 const rowKiroRsUrl = document.getElementById('row-kiro-rs-url');
 const inputKiroRsUrl = document.getElementById('input-kiro-rs-url');
-const btnOpenKiroRsGithub = document.getElementById('btn-open-kiro-rs-github');
 const rowKiroRsKey = document.getElementById('row-kiro-rs-key');
 const inputKiroRsKey = document.getElementById('input-kiro-rs-key');
 const btnTestKiroRs = document.getElementById('btn-test-kiro-rs');
@@ -1620,6 +1619,18 @@ let customEmailPoolEntriesState = [];
 
 const EYE_OPEN_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_CLOSED_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19C5 19 1 12 1 12a21.77 21.77 0 0 1 5.06-6.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a21.86 21.86 0 0 1-2.16 3.19"/><path d="M1 1l22 22"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/></svg>';
+const TARGET_REPOSITORY_URLS = Object.freeze({
+  openai: Object.freeze({
+    cpa: 'https://github.com/router-for-me/CLIProxyAPI',
+    sub2api: 'https://github.com/Wei-Shaw/sub2api',
+  }),
+  kiro: Object.freeze({
+    'kiro-rs': 'https://github.com/QLHazyCoder/kiro.rs',
+  }),
+  grok: Object.freeze({
+    webchat2api: 'https://github.com/zqbxdev/webchat2api',
+  }),
+});
 const PRIVACY_MASKED_INPUT_IDS = Object.freeze([
   'input-contribution-qq',
   'input-sub2api-url',
@@ -9390,6 +9401,33 @@ function getSelectedTargetId(flowId = getSelectedFlowId()) {
   );
 }
 
+function getTargetRepositoryUrl(flowId = getSelectedFlowId(), targetId = getSelectedTargetId(flowId)) {
+  const normalizedFlowId = normalizeFlowId(flowId);
+  const normalizedTargetId = normalizeTargetIdForFlow(
+    normalizedFlowId,
+    targetId,
+    getDefaultTargetIdForFlow(normalizedFlowId)
+  );
+  return TARGET_REPOSITORY_URLS[normalizedFlowId]?.[normalizedTargetId] || '';
+}
+
+function updateTargetRepositoryButton(flowId = getSelectedFlowId(), targetId = getSelectedTargetId(flowId)) {
+  if (!btnOpenTargetRepository) {
+    return;
+  }
+  const repositoryUrl = getTargetRepositoryUrl(flowId, targetId);
+  const hasRepositoryUrl = Boolean(repositoryUrl);
+  btnOpenTargetRepository.hidden = !hasRepositoryUrl;
+  btnOpenTargetRepository.disabled = !hasRepositoryUrl;
+  btnOpenTargetRepository.dataset.repositoryUrl = repositoryUrl;
+  const targetLabel = getFlowRegistry()?.getTargetLabel?.(flowId, targetId) || targetId;
+  const title = hasRepositoryUrl
+    ? `打开 ${targetLabel} 项目 GitHub 仓库`
+    : `${targetLabel} 暂未配置项目仓库`;
+  btnOpenTargetRepository.setAttribute('aria-label', title);
+  btnOpenTargetRepository.title = title;
+}
+
 function renderFlowSelectorOptions(selectedFlowId = getSelectedFlowId()) {
   if (!selectFlow) {
     return [];
@@ -13941,6 +13979,9 @@ function updatePanelModeUI() {
   if (selectPanelMode) {
     selectPanelMode.value = effectiveTargetId;
   }
+  if (typeof updateTargetRepositoryButton === 'function') {
+    updateTargetRepositoryButton(activeFlowId, effectiveTargetId);
+  }
   const visibleGroupIds = Array.isArray(capabilityState?.visibleGroupIds)
     ? capabilityState.visibleGroupIds
     : [];
@@ -15820,12 +15861,12 @@ btnGpcHelperConvertApiKey?.addEventListener('click', () => {
   openExternalUrl(GPC_HELPER_PORTAL_URL);
 });
 
-btnOpenKiroRsGithub?.addEventListener('click', () => {
-  openExternalUrl('https://github.com/QLHazyCoder/kiro.rs');
-});
-
-btnOpenWebchat2ApiGithub?.addEventListener('click', () => {
-  openExternalUrl('https://github.com/zqbxdev/webchat2api');
+btnOpenTargetRepository?.addEventListener('click', () => {
+  const repositoryUrl = btnOpenTargetRepository.dataset.repositoryUrl
+    || getTargetRepositoryUrl(getSelectedFlowId(), getSelectedTargetId());
+  if (repositoryUrl) {
+    openExternalUrl(repositoryUrl);
+  }
 });
 
 btnGpcHelperBalance?.addEventListener('click', async () => {
