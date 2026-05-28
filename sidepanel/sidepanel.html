@@ -405,9 +405,11 @@
       </div>
       <div class="data-row" id="row-plus-hosted-checkout-oauth-delay" style="display:none;">
         <span class="data-label">成功等待</span>
-        <input type="number" id="input-plus-hosted-checkout-oauth-delay-seconds" class="data-input auto-delay-input"
-          value="3" min="0" max="120" step="1" />
-        <span class="setting-caption">支付成功页出现后再继续账号接入</span>
+        <div class="data-inline">
+          <input type="number" id="input-plus-hosted-checkout-oauth-delay-seconds" class="data-input auto-delay-input"
+            value="3" min="0" max="120" step="1" />
+          <span class="setting-caption">支付成功页出现后再继续账号接入</span>
+        </div>
       </div>
       <div class="data-row" id="row-gpc-helper-api" style="display:none;">
         <span class="data-label">GPC API</span>
@@ -469,13 +471,15 @@
       </div>
       <div class="data-row" id="row-gpc-helper-local-sms-enabled" style="display:none;">
         <span class="data-label">本地 OTP</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="input-gpc-helper-local-sms-enabled" />
-          <span class="toggle-switch-track" aria-hidden="true">
-            <span class="toggle-switch-thumb"></span>
-          </span>
-        </label>
-        <span class="setting-caption">从本机 helper 读取当前通道 OTP，开启后不弹手动验证码</span>
+        <div class="data-inline">
+          <label class="toggle-switch">
+            <input type="checkbox" id="input-gpc-helper-local-sms-enabled" />
+            <span class="toggle-switch-track" aria-hidden="true">
+              <span class="toggle-switch-thumb"></span>
+            </span>
+          </label>
+          <span class="setting-caption">从本机 helper 读取当前通道 OTP，开启后不弹手动验证码</span>
+        </div>
       </div>
       <div class="data-row" id="row-gpc-helper-local-sms-url" style="display:none;">
         <span class="data-label">OTP 接口</span>
@@ -768,12 +772,6 @@
         <span class="data-label">回调</span>
         <div class="data-inline data-value-actions">
           <span id="display-localhost-url" class="data-value data-value-fill mono truncate">等待中...</span>
-        </div>
-      </div>
-      <div class="data-row module-divider-start" id="row-settings-actions">
-        <span class="data-label">设置</span>
-        <div class="data-inline data-value-actions">
-          <button id="btn-save-settings" class="btn btn-outline btn-sm data-inline-btn" type="button">保存</button>
         </div>
       </div>
     </div>
@@ -1452,14 +1450,16 @@
             </div>
             <div class="data-row" id="row-phone-signup-relogin-after-bind-email" style="display:none;">
               <span class="data-label">绑定后重登</span>
-              <label class="toggle-switch" for="input-phone-signup-relogin-after-bind-email"
-                title="手机号注册绑定邮箱后，跳过绑定邮箱验证码，重新刷新 OAuth 并使用绑定邮箱登录">
-                <input type="checkbox" id="input-phone-signup-relogin-after-bind-email" />
-                <span class="toggle-switch-track" aria-hidden="true">
-                  <span class="toggle-switch-thumb"></span>
-                </span>
-              </label>
-              <span class="data-value">绑定邮箱后切入邮箱注册模式 OAuth 尾部</span>
+              <div class="data-inline">
+                <label class="toggle-switch" for="input-phone-signup-relogin-after-bind-email"
+                  title="手机号注册绑定邮箱后，跳过绑定邮箱验证码，重新刷新 OAuth 并使用绑定邮箱登录">
+                  <input type="checkbox" id="input-phone-signup-relogin-after-bind-email" />
+                  <span class="toggle-switch-track" aria-hidden="true">
+                    <span class="toggle-switch-thumb"></span>
+                  </span>
+                </label>
+                <span class="data-value">绑定邮箱后切入邮箱注册模式 OAuth 尾部</span>
+              </div>
             </div>
             <div class="data-row" id="row-account-run-history-helper-base-url" style="display:none;">
               <span class="data-label">同步服务</span>

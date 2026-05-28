@@ -40,6 +40,10 @@
 
   --radius-sm: 6px;
   --radius-md: 8px;
+  --data-label-width: 76px;
+  --data-row-gap: 8px;
+  --data-field-height: 34px;
+  --data-inline-action-min-width: 64px;
   --transition: 150ms ease;
 }
 
@@ -893,7 +897,8 @@ header {
 .data-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--data-row-gap);
+  min-width: 0;
 }
 
 #settings-card .data-row.module-divider-start {
@@ -919,7 +924,24 @@ header {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.data-inline > .data-input,
+.data-inline > .data-select,
+.data-inline > .editable-list-picker,
+.data-inline > .input-with-icon {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.data-inline > .auto-delay-input {
+  flex: 0 0 72px;
+}
+
+.data-inline > .data-value {
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -1247,41 +1269,37 @@ header {
 
 .input-with-icon {
   position: relative;
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   align-items: center;
 }
 
 .data-label {
-  width: 56px;
+  flex: 0 0 var(--data-label-width);
+  width: var(--data-label-width);
   font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  flex-shrink: 0;
-}
-
-#row-codex2api-url .data-label,
-#row-codex2api-admin-key .data-label {
-  width: 76px;
+  min-width: 0;
 }
 
 #row-flow-selector .data-label,
-#row-source-selector .data-label,
+#row-source-selector .data-label {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+#row-codex2api-url .data-label,
+#row-codex2api-admin-key .data-label,
 #row-grok-webchat2api-url .data-label,
 #row-grok-webchat2api-key .data-label,
 #row-grok-register-status .data-label,
 #row-grok-sso-status .data-label,
 #row-grok-webchat2api-upload-status .data-label,
 #row-grok-sso-settings .data-label {
-  width: 76px;
-  text-transform: none;
-  letter-spacing: 0.02em;
-}
-
-#row-codex2api-url .data-label {
   font-size: 10px;
   letter-spacing: 0.02em;
   text-transform: none;
@@ -1364,7 +1382,10 @@ header {
 }
 
 .data-input {
-  flex: 1;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--data-field-height);
   padding: 7px 10px;
   background: var(--bg-field);
   border: 1px solid var(--border);
@@ -1374,7 +1395,6 @@ header {
   font-size: 13px;
   outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
-  min-width: 0;
 }
 .data-input::placeholder { color: var(--text-muted); }
 .data-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
@@ -1446,7 +1466,8 @@ header {
 }
 
 .choice-group {
-  flex: 1;
+  flex: 1 1 0;
+  width: 100%;
   min-width: 0;
   display: inline-flex;
   align-items: center;
@@ -1526,15 +1547,14 @@ header {
   color: var(--text-secondary);
 }
 
-#btn-fetch-email,
-#btn-save-settings {
+#btn-fetch-email {
   padding-inline: 10px;
   flex-shrink: 0;
 }
 
 .data-inline-btn {
-  flex-shrink: 0;
-  min-width: 56px;
+  flex: 0 0 auto;
+  min-width: var(--data-inline-action-min-width);
   justify-content: center;
 }
 
@@ -2072,7 +2092,10 @@ header {
 }
 
 .data-select {
-  flex: 1;
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--data-field-height);
   padding: 7px 10px;
   background: var(--bg-field);
   border: 1px solid var(--border);
@@ -2083,7 +2106,6 @@ header {
   outline: none;
   cursor: pointer;
   transition: border-color var(--transition);
-  min-width: 0;
 }
 .data-select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
 [data-theme="dark"] .data-select { color-scheme: dark; }
@@ -2105,7 +2127,8 @@ header {
 
 .editable-list-picker {
   position: relative;
-  flex: 1;
+  flex: 1 1 0;
+  width: 100%;
   min-width: 0;
 }
 

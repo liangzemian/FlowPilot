@@ -60,7 +60,6 @@ const btnToggleVpsUrl = document.getElementById('btn-toggle-vps-url');
 const btnToggleVpsPassword = document.getElementById('btn-toggle-vps-password');
 const btnFetchEmail = document.getElementById('btn-fetch-email');
 const btnTogglePassword = document.getElementById('btn-toggle-password');
-const btnSaveSettings = document.getElementById('btn-save-settings');
 const btnStop = document.getElementById('btn-stop');
 const btnReset = document.getElementById('btn-reset');
 const btnContributionMode = document.getElementById('btn-contribution-mode');
@@ -10976,13 +10975,11 @@ function markSettingsDirty(isDirty = true) {
   if (isDirty) {
     settingsSaveRevision += 1;
   }
-  updateSaveButtonState();
+  updateSettingsSaveState();
 }
 
-function updateSaveButtonState() {
-  btnSaveSettings.disabled = settingsSaveInFlight || !settingsDirty;
+function updateSettingsSaveState() {
   updateConfigMenuControls();
-  btnSaveSettings.textContent = settingsSaveInFlight ? '保存中' : '保存';
 }
 
 function isEditableElementInSettingsCard(element) {
@@ -11019,7 +11016,7 @@ async function saveSettings(options = {}) {
   const payload = collectSettingsPayload();
   const saveRevision = settingsSaveRevision;
   settingsSaveInFlight = true;
-  updateSaveButtonState();
+  updateSettingsSaveState();
 
   const shouldSkipStateApplyForFocusedEditor = (() => {
     if (!silent || source !== 'autosave') {
@@ -11067,7 +11064,7 @@ async function saveSettings(options = {}) {
     throw err;
   } finally {
     settingsSaveInFlight = false;
-    updateSaveButtonState();
+    updateSettingsSaveState();
   }
 }
 
@@ -15359,14 +15356,6 @@ hotmailServiceModeButtons.forEach((button) => {
   });
 });
 
-btnSaveSettings.addEventListener('click', async () => {
-  if (!settingsDirty) {
-    showToast('配置已是最新', 'info', 1400);
-    return;
-  }
-  await saveSettings({ silent: false }).catch(() => { });
-});
-
 btnStop.addEventListener('click', async () => {
   btnStop.disabled = true;
   await chrome.runtime.sendMessage({ type: 'STOP_FLOW', source: 'sidepanel', payload: {} });
@@ -18823,8 +18812,7 @@ if (typeof initPhoneVerificationSectionExpandedState === 'function') {
   initPhoneVerificationSectionExpandedState();
 }
 applyPhoneSmsProviderOrderSelection([], { ensureDefault: false, syncProvider: false });
-updateSaveButtonState();
-updateConfigMenuControls();
+updateSettingsSaveState();
 setLocalCpaStep9Mode(DEFAULT_LOCAL_CPA_STEP9_MODE);
 setMail2925Mode(DEFAULT_MAIL_2925_MODE);
 setCloudflareTempEmailLookupMode(DEFAULT_CLOUDFLARE_TEMP_EMAIL_LOOKUP_MODE);

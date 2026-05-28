@@ -43,7 +43,6 @@ test('sidepanel html exposes flow selector and kiro source fields', () => {
     'id="row-shared-auto-run"',
     'id="row-auto-run-thread-interval"',
     'id="row-oauth-callback"',
-    'id="row-settings-actions"',
     'id="row-kiro-rs-url"',
     'id="btn-open-kiro-rs-github"',
     'id="row-kiro-rs-key"',
