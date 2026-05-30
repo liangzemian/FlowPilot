@@ -267,6 +267,10 @@ const AUTO_RUN_STEP_IDLE_LOG_TIMEOUT_MS = ${JSON.stringify(idleLogTimeoutMs)};
 const AUTO_RUN_STEP_IDLE_LOG_CHECK_INTERVAL_MS = ${JSON.stringify(idleLogCheckIntervalMs)};
 const AUTO_RUN_STEP_IDLE_RESTART_MAX_ATTEMPTS = 3;
 const AUTO_RUN_STEP_IDLE_RESTART_ERROR_PREFIX = 'AUTO_RUN_STEP_IDLE_RESTART::';
+const AUTO_RUN_TIMER_PARKED_ERROR_PREFIX = 'AUTO_RUN_TIMER_PARKED::';
+const AUTO_RUN_TIMER_KIND_BEFORE_RETRY = 'before_retry';
+const GPC_CHECKOUT_RESTART_COOLDOWN_TRIGGER_COUNT = 3;
+const GPC_CHECKOUT_RESTART_COOLDOWN_MS = 5 * 60 * 1000;
 const LOG_PREFIX = '[test]';
 const chrome = {
   tabs: {
@@ -283,6 +287,7 @@ const events = {
   stateUpdates: [],
   cancellations: [],
   stopBroadcasts: 0,
+  timerPlans: [],
 };
 
 async function addLog(message, level = 'info') {
@@ -343,6 +348,10 @@ function cancelPendingCommands(reason = '') {
 async function broadcastStopToContentScripts() {
   events.stopBroadcasts += 1;
 }
+async function persistAutoRunTimerPlan(plan, extraState = {}) {
+  events.timerPlans.push({ plan, extraState });
+  return plan;
+}
 function getLoginAuthStateLabel(state) {
   return state || 'unknown';
 }
@@ -352,6 +361,13 @@ function getErrorMessage(error) {
 function normalizePlusPaymentMethod(value = '') {
   const normalized = String(value || '').trim().toLowerCase();
   return normalized === PLUS_PAYMENT_METHOD_GPC_HELPER ? PLUS_PAYMENT_METHOD_GPC_HELPER : normalized;
+}
+function buildAutoRunTimerParkedError(message = '') {
+  return new Error(AUTO_RUN_TIMER_PARKED_ERROR_PREFIX + String(message || '').trim());
+}
+function isAutoRunTimerParkedError(error) {
+  const message = String(typeof error === 'string' ? error : error?.message || '');
+  return message.startsWith(AUTO_RUN_TIMER_PARKED_ERROR_PREFIX);
 }
 function isPhoneSmsPlatformRateLimitFailure(error) {
   const message = getErrorMessage(error);
@@ -385,6 +401,9 @@ return {
     } catch (error) {
       return { error, events };
     }
+  },
+  getEvents() {
+    return events;
   },
 };
 `)();
@@ -954,7 +973,7 @@ test('auto-run restarts GPC checkout from step 6 when page returns without compl
   assert.ok(events.logs.some(({ message }) => /回到节点 plus-checkout-create 重新准备 GPC 页面/.test(message)));
 });
 
-test('auto-run keeps rebuilding GPC checkout beyond three failures', async () => {
+test('auto-run parks GPC checkout rebuild loop on the third consecutive failure', async () => {
   const plusGpcSteps = {
     6: { key: 'plus-checkout-create' },
     7: { key: 'plus-checkout-billing' },
@@ -977,14 +996,54 @@ test('auto-run keeps rebuilding GPC checkout beyond three failures', async () =>
     },
   });
 
-  const events = await harness.run();
+  const result = await harness.runAndCaptureError();
 
-  assert.deepStrictEqual(
-    events.steps,
-    [6, 7, 6, 7, 6, 7, 6, 7, 6, 7, 10, 11, 12, 13]
-  );
-  assert.deepStrictEqual(events.invalidations.map((entry) => entry.step), [5, 5, 5, 5]);
-  assert.ok(events.logs.some(({ message }) => /第 4 次/.test(message)));
+  assert.ok(result?.error);
+  assert.match(result.error.message, /AUTO_RUN_TIMER_PARKED::/);
+  assert.deepStrictEqual(result.events.steps, [6, 7, 6, 7, 6, 7]);
+  assert.deepStrictEqual(result.events.invalidations.map((entry) => entry.step), [5, 5, 5]);
+  assert.equal(result.events.timerPlans.length, 1);
+  assert.equal(result.events.timerPlans[0].plan.kind, 'before_retry');
+  assert.equal(result.events.timerPlans[0].plan.mode, 'continue');
+});
+
+test('auto-run parks current attempt for five minutes after every third GPC checkout rebuild', async () => {
+  const plusGpcSteps = {
+    6: { key: 'plus-checkout-create' },
+    7: { key: 'plus-checkout-billing' },
+    10: { key: 'oauth-login' },
+    11: { key: 'fetch-login-code' },
+    12: { key: 'confirm-oauth' },
+    13: { key: 'platform-verify' },
+  };
+  const harness = createHarness({
+    startStep: 6,
+    failureStep: 7,
+    failureBudget: 3,
+    failureMessage: 'GPC_PAGE_FLOW_ENDED::步骤 7：GPC 页面等待超时，未检测到订阅完成。',
+    stepDefinitions: plusGpcSteps,
+    finalOAuthChainStartStep: 10,
+    customState: {
+      stepStatuses: { 3: 'completed' },
+      plusPaymentMethod: 'gpc-helper',
+      plusCheckoutSource: 'gpc-helper',
+      autoRunSkipFailures: true,
+      autoRunRoundSummaries: [],
+    },
+  });
+
+  const result = await harness.runAndCaptureError();
+
+  assert.ok(result?.error);
+  assert.match(result.error.message, /AUTO_RUN_TIMER_PARKED::/);
+  const events = result.events;
+  assert.deepStrictEqual(events.steps, [6, 7, 6, 7, 6, 7]);
+  assert.deepStrictEqual(events.invalidations.map((entry) => entry.step), [5, 5, 5]);
+  assert.equal(events.timerPlans.length, 1);
+  assert.equal(events.timerPlans[0].plan.kind, 'before_retry');
+  assert.equal(events.timerPlans[0].plan.mode, 'continue');
+  assert.ok(/5 分钟后继续/.test(events.timerPlans[0].plan.countdownNote));
+  assert.ok(events.logs.some(({ message }) => /已进入 5 分钟冷却/.test(message)));
 });
 
 test('auto-run does not restart GPC checkout when Plus account has no free-trial eligibility', async () => {

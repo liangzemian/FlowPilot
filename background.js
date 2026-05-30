@@ -605,11 +605,14 @@ const AUTO_RUN_TIMER_ALARM_NAME = 'auto-run-timer';
 const IP_PROXY_AUTO_SYNC_ALARM_NAME = 'ip-proxy-auto-sync';
 const AUTO_RUN_TIMER_KIND_BETWEEN_ROUNDS = 'between_rounds';
 const AUTO_RUN_TIMER_KIND_BEFORE_RETRY = 'before_retry';
+const AUTO_RUN_TIMER_PARKED_ERROR_PREFIX = 'AUTO_RUN_TIMER_PARKED::';
 const IP_PROXY_AUTO_SYNC_INTERVAL_MIN_MINUTES = 1;
 const IP_PROXY_AUTO_SYNC_INTERVAL_MAX_MINUTES = 1440;
 const IP_PROXY_AUTO_SYNC_DEFAULT_INTERVAL_MINUTES = 15;
 const AUTO_RUN_RETRY_DELAY_MS = 3000;
 const AUTO_RUN_MAX_RETRIES_PER_ROUND = 3;
+const GPC_CHECKOUT_RESTART_COOLDOWN_TRIGGER_COUNT = 3;
+const GPC_CHECKOUT_RESTART_COOLDOWN_MS = 5 * 60 * 1000;
 const AUTO_STEP_DELAY_MIN_ALLOWED_SECONDS = 0;
 const AUTO_STEP_DELAY_MAX_ALLOWED_SECONDS = 600;
 const VERIFICATION_RESEND_COUNT_MIN = 0;
@@ -2439,7 +2442,7 @@ function normalizeAutoRunTimerPlan(plan) {
     fireAt,
     totalRuns,
     autoRunSkipFailures,
-    mode: 'restart',
+    mode,
     currentRun: normalizedCurrentRun,
     attemptRun: normalizedAttemptRun,
     autoRunSessionId,
@@ -9659,6 +9662,15 @@ function isRestartCurrentAttemptError(error) {
   return /当前邮箱已存在，需要重新开始新一轮|SIGNUP_PHONE_PASSWORD_MISMATCH::/i.test(message);
 }
 
+function buildAutoRunTimerParkedError(message = '') {
+  return new Error(`${AUTO_RUN_TIMER_PARKED_ERROR_PREFIX}${String(message || '').trim()}`);
+}
+
+function isAutoRunTimerParkedError(error) {
+  const message = String(typeof error === 'string' ? error : error?.message || '');
+  return message.startsWith(AUTO_RUN_TIMER_PARKED_ERROR_PREFIX);
+}
+
 function isSignupPhonePasswordMismatchFailure(error) {
   const message = getErrorMessage(error);
   return /SIGNUP_PHONE_PASSWORD_MISMATCH::/i.test(message);
@@ -10473,7 +10485,7 @@ function getAutoRunTimerResumeOptions(plan) {
     loopOptions: {
       autoRunSessionId: normalizedPlan.autoRunSessionId,
       autoRunSkipFailures: normalizedPlan.autoRunSkipFailures,
-      mode: 'restart',
+      mode: normalizedPlan.mode === 'continue' ? 'continue' : 'restart',
       resumeCurrentRun: normalizedPlan.currentRun,
       resumeAttemptRun: normalizedPlan.attemptRun,
       resumeRoundSummaries: normalizedPlan.roundSummaries,
@@ -12629,6 +12641,7 @@ const autoRunController = self.MultiPageBackgroundAutoRunController?.createAutoR
   isAddPhoneAuthFailure,
   isPhoneSmsPlatformRateLimitFailure,
   isPlusCheckoutNonFreeTrialFailure,
+  isAutoRunTimerParkedError,
   isGpcPageFlowEndedFailure,
   isKiroProxyFailure,
   isRestartCurrentAttemptError,
@@ -13147,6 +13160,43 @@ async function runAutoSequenceFromNodeGraph(startNodeId, context = {}) {
     }
     return undefined;
   };
+  const parkAutoRunCurrentAttemptByTimer = async (options = {}) => {
+    const {
+      currentRun = targetRun,
+      totalRunsForPlan = totalRuns,
+      attemptRunForPlan = attemptRuns,
+      countdownTitle = '',
+      countdownNote = '',
+      logMessage = '',
+      extraState = {},
+    } = options && typeof options === 'object' ? options : {};
+    const sessionIdForPlan = Math.max(
+      0,
+      Math.floor(Number(typeof autoRunSessionId !== 'undefined' ? autoRunSessionId : 0) || 0)
+    );
+    if (typeof persistAutoRunTimerPlan === 'function') {
+      const latestStateForPlan = await getState();
+      await persistAutoRunTimerPlan({
+        kind: AUTO_RUN_TIMER_KIND_BEFORE_RETRY,
+        fireAt: Date.now() + GPC_CHECKOUT_RESTART_COOLDOWN_MS,
+        mode: 'continue',
+        currentRun,
+        totalRuns: totalRunsForPlan,
+        attemptRun: attemptRunForPlan,
+        autoRunSessionId: sessionIdForPlan,
+        autoRunSkipFailures: Boolean(latestStateForPlan.autoRunSkipFailures),
+        roundSummaries: Array.isArray(latestStateForPlan.autoRunRoundSummaries)
+          ? latestStateForPlan.autoRunRoundSummaries
+          : [],
+        countdownTitle: countdownTitle || 'GPC 冷却中',
+        countdownNote: countdownNote || `第 ${currentRun}/${totalRunsForPlan} 轮第 ${attemptRunForPlan} 次尝试将在 5 分钟后继续`,
+      }, extraState);
+    }
+    if (logMessage) {
+      await addLog(logMessage, 'warn');
+    }
+    throw buildAutoRunTimerParkedError(logMessage || '当前自动运行已进入定时等待。');
+  };
   const restartCurrentNodeAfterIdle = async (nodeId, error) => {
     if (!isAutoRunStepIdleRestartError(error)) {
       return false;
@@ -13411,6 +13461,20 @@ async function runAutoSequenceFromNodeGraph(startNodeId, context = {}) {
         await invalidateDownstreamAfterAutoRunNodeRestart(checkoutResetAnchorNodeId, {
           logLabel: `节点 ${nodeId} ${checkoutLabel}失败后准备回到 plus-checkout-create 重试（第 ${checkoutRestartCount} 次）`,
         });
+        if (
+          isGpcCheckoutStep
+          && checkoutRestartCount >= GPC_CHECKOUT_RESTART_COOLDOWN_TRIGGER_COUNT
+          && checkoutRestartCount % GPC_CHECKOUT_RESTART_COOLDOWN_TRIGGER_COUNT === 0
+        ) {
+          await parkAutoRunCurrentAttemptByTimer({
+            currentRun: targetRun,
+            totalRunsForPlan: totalRuns,
+            attemptRunForPlan: attemptRuns,
+            countdownTitle: 'GPC 冷却中',
+            countdownNote: `第 ${targetRun}/${totalRuns} 轮第 ${attemptRuns} 次尝试将在 5 分钟后继续回到 plus-checkout-create`,
+            logMessage: `GPC 第 ${checkoutRestartCount} 次回到 plus-checkout-create 后仍未恢复，已进入 5 分钟冷却，稍后继续当前尝试。`,
+          });
+        }
         nodeIndex = Math.max(0, getNodeIndex(await getState(), 'plus-checkout-create'));
         continue;
       }
